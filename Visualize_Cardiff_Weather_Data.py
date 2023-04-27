@@ -100,59 +100,197 @@ with st.container():
     st.map(data=location, use_container_width=True, zoom=13)
     st.markdown(f'**City:** {global_epw.location.city}, **Latitude:** {site_latitude}, **Longitude:** {site_longitude}, **Timezone:** {global_epw.location.time_zone}, **Source:** {global_epw.location.source}')
 
-    #components.html('<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/13535193"><script src="https://public.flourish.studio/resources/embed.js"></script></div>', height=600)
 
-
- # Thematic Break Line
+# Thematic Break Line
 st.markdown('---')
 
 
 # ----------------------------------------------------------------- Part 3 EPW Charts -----------------------------------------------------------------
 with st.container():
-    col1, col2 = st.columns(2)
-    with col1:
-        st.header('Visualize Weather Data')
-    with col2:
-        global_colorset_selector = st.selectbox('Global Colorsets Selector for Charts', list(colorsets.keys()))
+    st.header('Visualize Weather Data')
+    global_colorset_selector = st.selectbox('Global Colorsets Selector for Charts', list(colorsets.keys()))
+    color_switch = st.checkbox('Switch Colors', value=False, key='color_switch', help='Reverse the colorset')
+    
+    tabs = st.tabs(['Hourly Data', 'Daily Data', 'Monthly Data', 'Degree Days', 'Windrose', 'Psychrometric Chart'])
+    
+    dashed_line_style = """
+    border-top: 1.2px dashed #999;
+    width: 100%;
+    margin: 60px auto;
+    """
+    
+    def get_colors(switch: bool, global_colorset: str):
+        if switch:
+            colors = list(colorsets[global_colorset])
+            colors.reverse()
+        else:
+            colors = colorsets[global_colorset]
+        return colors
+    
+
+# Hourly Data ---------            
+    with tabs[0]:
+        st.subheader('Hourly Data Heatmap')
+        st.markdown('Choose an environmental variable from the EPW weather file to display. By default, the hourly data is set to **Dry Bulb Temperature**. You can apply a conditional statement to filter the data. '
+                    'For instance, use "a>10", without quotes, to display temperatures above 10, or "a>-5 and a<10", without quotes, for temperatures between -5 and 10. You can also adjust the min and max inputs to customize the data bounds and legend. '
+                    'The chart automatically sets the bounds to the minimum and maximum values of the data by default.')
+
+        def get_hourly_data_figure(data: HourlyContinuousCollection, global_colorset: str, conditional_statement: str, min: float, max: float, start_month: int, start_day: int, start_hour: int, 
+                                   end_month: int, end_day: int, end_hour: int, switch: bool):
+            lb_ap = AnalysisPeriod(start_month, start_day, start_hour, end_month, end_day, end_hour) # Create an Analysis Period to describe a slice of time during the year.
+            filtered_data = data.filter_by_analysis_period(lb_ap)
+            
+            if conditional_statement:
+                try:
+                    filtered_data = data.filter_by_conditional_statement(conditional_statement)
+                except AssertionError:
+                    return 'No values found for that conditonal statement'
+                except ValueError:
+                    return 'Invalid conditonal statement'
+            
+            if min:
+                try:
+                    min = float(min)
+                except ValueError:
+                    return 'Invalid minimum value'
+                
+            if max:
+                try:
+                    max = float(max)
+                except ValueError:
+                    return 'Invalid maximum value'
+            
+            colors = get_colors(switch, global_colorset)
+            lb_lp = LegendParameters(colors=colors)
+            
+            if min:
+                lb_lp.min = min
+            if max:
+                lb_lp.max = max
+                
+            hourly_plot = HourlyPlot(data_collection=filtered_data, legend_parameters=lb_lp)
+            return hourly_plot.plot(title=str(filtered_data.header.data_type), show_title=True)
+
+        with st.expander('Control Panel', expanded=True):
+            hourly_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), key='hourly_data')
+            hourly_data = global_epw._get_data_by_field(fields[hourly_selected])
+            col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns(9)
+            with col1:
+                hourly_data_conditonal_statement = st.text_input('Conditional statement: ')
+            with col2:
+                hourly_data_min = st.text_input('Min: ')
+            with col3:
+                hourly_data_max = st.text_input('Max: ')
+            with col4:
+                hourly_data_start_month = st.number_input('Start month: ', min_value=1, max_value=12, value=1, key='hourly_data_start_month')
+            with col5:
+                hourly_data_end_month = st.number_input('End month: ', min_value=1, max_value=12, value=12, key='hourly_data_end_month')
+            with col6:
+                hourly_data_start_day = st.number_input('Start day: ', min_value=1, max_value=31, value=1, key='hourly_data_start_day')
+            with col7:
+                hourly_data_end_day = st.number_input('End day: ', min_value=1, max_value=31, value=31, key='hourly_data_end_day')
+            with col8:
+                hourly_data_start_hour = st.number_input('Start hour: ', min_value=0, max_value=23, value=0, key='hourly_data_start_hour')
+            with col9:
+                hourly_data_end_hour = st.number_input('End hour: ', min_value=0, max_value=23, value=23, key='hourly_data_end_hour')
         
-    tabs = st.tabs(['Monthly Data', 'Daily Data', 'Hourly Data', 'Degree Days', 'Windrose', 'Psychrometric Chart'])
+        hourly_data_figure = get_hourly_data_figure(
+                                                    data=hourly_data, 
+                                                    global_colorset=global_colorset_selector, 
+                                                    conditional_statement=hourly_data_conditonal_statement, 
+                                                    min=hourly_data_min, 
+                                                    max=hourly_data_max, 
+                                                    start_month=hourly_data_start_month, 
+                                                    end_month=hourly_data_end_month, 
+                                                    start_day=hourly_data_start_day, 
+                                                    end_day=hourly_data_end_day, 
+                                                    start_hour=hourly_data_start_hour, 
+                                                    end_hour=hourly_data_end_hour,
+                                                    switch=color_switch,
+                                                    )
+        
+        hourly_data_figure.update_layout(title=dict(x=0.5, y=0.96), margin=dict(t=60, b=0, pad=0), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        st.plotly_chart(hourly_data_figure, use_container_width=True, config=get_figure_config(f'{hourly_data.header.data_type}'))
+           
+
+        
+# Daily Data ---------        
+    with tabs[1]: 
+        st.subheader('Hourly Line Chart')
+        st.markdown('Choose an environmental variable from the EPW weather file to display on a line chart. By default, the hourly data is set to **Dry Bulb Temperature**.')
+        
+        with st.expander('Control Panel', expanded=True):
+            daily_data_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), index=0, key='daily_data_line_chart_and_bar_chart')
+            daily_data_chart_data = global_epw._get_data_by_field(fields[daily_data_selected])
+        
+        def get_hourly_line_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str, selection: str):
+            colors = get_colors(switch, global_colorset)
+            return data.line_chart(color=colors[9], title=selection, show_title=True)
+            
+        hourly_line_chart_figure = get_hourly_line_chart_figure(daily_data_chart_data, color_switch, global_colorset_selector, daily_data_selected)
+        hourly_line_chart_figure.update_layout(margin=dict(t=96, b=0, pad=0), title=dict(x=0.5, y=0.96), legend=dict(bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        st.plotly_chart(hourly_line_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_data_selected}'))
+
+
+        # Thematic Break Line
+        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)
+
+
+        st.subheader('Daily Chart')
+        st.markdown('Choose an environmental variable from the EPW weather file to display on a daily chart, which presents average daily values. By default, the hourly data is set to **Dry Bulb Temperature**.')
     
-    
-    
-    with tabs[0]: # Monthly Data
+        def get_daily_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
+            colors = get_colors(switch, global_colorset)
+            data = data.average_daily()
+            return data.bar_chart(color=colors[9], title=data.header.data_type.name, show_title=True)
+        
+        daily_chart_figure = get_daily_chart_figure(daily_data_chart_data, color_switch, global_colorset_selector)
+        daily_chart_figure.update_layout(margin=dict(t=60, b=0, pad=0), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        st.plotly_chart(daily_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_data_chart_data.header.data_type.name}'))        
+                  
+
+
+# Monthly Data ---------    
+    with tabs[2]: 
         st.subheader('Diurnal Average Chart')
         st.markdown('A chart illustrating the typical weather for each month, based on daily averages.')
-        with st.expander('Control Panel', expanded=True):
-            diurnal_average_chart_switch = st.checkbox('Switch Colors', value=False, key='diurnal_average_chart_switch', help='Reverse the colorset')
-        
-        def get_colors(switch: bool, global_colorset: str):
-            if switch:
-                colors = list(colorsets[global_colorset])
-                colors.reverse()
-            else:
-                colors = colorsets[global_colorset]
-            return colors
         
         def get_diurnal_average_chart_figure(epw: EPW, global_colorset: str, switch: bool=False):
             colors = get_colors(switch, global_colorset)
             return epw.diurnal_average_chart(show_title=True, colors=colors)
         
-        diurnal_average_chart_figure = get_diurnal_average_chart_figure(global_epw, global_colorset_selector, diurnal_average_chart_switch)
-        diurnal_average_chart_figure.update_layout(title=dict(x=0.5, y=0.96), margin=dict(t=96, b=50, pad=5), legend=dict(x=1, y=1.05, orientation='h', bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        diurnal_average_chart_figure = get_diurnal_average_chart_figure(global_epw, global_colorset_selector, color_switch)
+        diurnal_average_chart_figure.update_layout(title=dict(x=0.5, y=0.96), margin=dict(t=96, b=54, pad=5), legend=dict(x=1, y=1.05, orientation='h', bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
         st.plotly_chart(diurnal_average_chart_figure, use_container_width=True, config=get_figure_config(f'Dinurnal Chart_{global_epw.location.city}'))
 
 
         # Thematic Break Line
-        dashed_line_style = """
-            border-top: 1.2px dashed #999;
-            width: 100%;
-            margin: 60px auto;
-        """
         st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)
+
+
+        st.subheader('Diurnal Average Chart (Hourly Data)')
+        st.markdown('Choose an environmental variable from the EPW weather file to display on a diurnal average chart. By default, the hourly data is set to **Dry Bulb Temperature**.')
+
+        with st.expander('Control Panel', expanded=True):
+            diurnal_average_chart_hourly_selected = st.selectbox('Select an environmental variable: ', options=fields.keys(), index=0, key='hourly_diurnal_average_chart')
+            diurnal_average_chart_hourly_data = global_epw._get_data_by_field(fields[diurnal_average_chart_hourly_selected])
+
+        def get_hourly_diurnal_average_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
+            colors = get_colors(switch, global_colorset)
+            return data.diurnal_average_chart(title=data.header.data_type.name, show_title=True, color=colors[9])
+        
+        per_hour_line_chart_figure = get_hourly_diurnal_average_chart_figure(diurnal_average_chart_hourly_data, color_switch, global_colorset_selector)
+        per_hour_line_chart_figure.update_layout(margin=dict(t=60, b=54, pad=5), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        st.plotly_chart(per_hour_line_chart_figure, use_container_width=True, config=get_figure_config(f'{diurnal_average_chart_hourly_data.header.data_type.name}'))
+        
+        
+        # Thematic Break Line
+        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)        
 
 
         st.subheader('Bar Chart')
         st.markdown('Choose one or more environmental variables from the EPW weather file to display on a monthly bar chart side by side. By default, **Dry Bulb Temperature** and **Dew Point Temperature** are selected.')       
+        
         
         bar_chart_selection = []
         keys = list(fields.keys())
@@ -191,7 +329,6 @@ with st.container():
             
                             
             bar_chart_data_type = st.selectbox(label='Select a data type: ', options=('Monthly Average', 'Monthly Total'))
-            bar_chart_switch = st.checkbox('Switch Colors', value=False, key='bar_chart_switch', help='Reverse the colorset')
             bar_chart_stack = st.checkbox('Stack', value=False, key='bar_chart_stacked')
         
         def get_bar_chart_figure(fields: dict, epw: EPW, selection: list, data_type: str, switch: bool, stack: bool, global_colorset: str):
@@ -210,7 +347,7 @@ with st.container():
             monthly_chart = MonthlyChart(data, legend_parameters=lb_lp, stack=stack)
             return monthly_chart.plot()
             
-        bar_chart_figure = get_bar_chart_figure(fields, global_epw, bar_chart_selection, bar_chart_data_type, bar_chart_switch, bar_chart_stack, global_colorset_selector)
+        bar_chart_figure = get_bar_chart_figure(fields, global_epw, bar_chart_selection, bar_chart_data_type, color_switch, bar_chart_stack, global_colorset_selector)
         if bar_chart_selection.count(True) == 1:
             bar_chart_figure.update_layout(margin=dict(t=30, b=0, pad=0), title=dict(text='', x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
         else:
@@ -218,153 +355,9 @@ with st.container():
         bar_chart_figure.update_traces(marker=dict(line=dict(width=0)))
         st.plotly_chart(bar_chart_figure, use_container_width=True, config=get_figure_config(f'{bar_chart_data_type}'))
 
-    
-    
-    with tabs[1]: # Daily Data
-        st.subheader('Daily Chart')
-        st.markdown('Choose an environmental variable from the EPW weather file to display on a daily chart, which presents average daily values. By default, the hourly data is set to **Dry Bulb Temperature**.')
-        with st.expander('Control Panel', expanded=True):
-            daily_chart_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), index=0, key='daily_chart')
-            daily_chart_data = global_epw._get_data_by_field(fields[daily_chart_selected])
-            daily_chart_switch = st.checkbox('Switch Colors', value=False, key='daily_chart_switch', help='Reverse the colorset')
-    
-        def get_daily_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
-            colors = get_colors(switch, global_colorset)
-            data = data.average_daily()
-            return data.bar_chart(color=colors[9], title=data.header.data_type.name, show_title=True)
-        
-        daily_chart_figure = get_daily_chart_figure(daily_chart_data, daily_chart_switch, global_colorset_selector)
-        daily_chart_figure.update_layout(margin=dict(t=60, b=0, pad=0), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(daily_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_chart_data.header.data_type.name}'))        
-        
-     
-        
-    with tabs[2]: # Hourly Data
-        st.subheader('Hourly Data Heatmap')
-        st.markdown('Choose an environmental variable from the EPW weather file to display. By default, the hourly data is set to **Dry Bulb Temperature**. You can apply a conditional statement to filter the data. '
-                    'For instance, use "a>10", without quotes, to display temperatures above 10, or "a>-5 and a<10", without quotes, for temperatures between -5 and 10. You can also adjust the min and max inputs to customize the data bounds and legend. '
-                    'The chart automatically sets the bounds to the minimum and maximum values of the data by default.')
-
-        def get_hourly_data_figure(data: HourlyContinuousCollection, global_colorset: str, conditional_statement: str, min: float, max: float, start_month: int, start_day: int, start_hour: int, 
-                                   end_month: int, end_day: int, end_hour: int):
-            lb_ap = AnalysisPeriod(start_month, start_day, start_hour, end_month, end_day, end_hour) # Create an Analysis Period to describe a slice of time during the year.
-            filtered_data = data.filter_by_analysis_period(lb_ap)
-            
-            if conditional_statement:
-                try:
-                    filtered_data = data.filter_by_conditional_statement(conditional_statement)
-                except AssertionError:
-                    return 'No values found for that conditonal statement'
-                except ValueError:
-                    return 'Invalid conditonal statement'
-            
-            if min:
-                try:
-                    min = float(min)
-                except ValueError:
-                    return 'Invalid minimum value'
-                
-            if max:
-                try:
-                    max = float(max)
-                except ValueError:
-                    return 'Invalid maximum value'
-            
-            lb_lp = LegendParameters(colors=colorsets[global_colorset])
-            
-            if min:
-                lb_lp.min = min
-            if max:
-                lb_lp.max = max
-                
-            hourly_plot = HourlyPlot(data_collection=filtered_data, legend_parameters=lb_lp)
-            return hourly_plot.plot(title=str(filtered_data.header.data_type), show_title=True)
-
-        with st.expander('Control Panel', expanded=True):
-            hourly_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), key='hourly_data')
-            hourly_data = global_epw._get_data_by_field(fields[hourly_selected])
-            col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns(9)
-            with col1:
-                hourly_data_conditonal_statement = st.text_input('Conditional statement: ')
-            with col2:
-                hourly_data_min = st.text_input('Min: ')
-            with col3:
-                hourly_data_max = st.text_input('Max: ')
-            with col4:
-                hourly_data_start_month = st.number_input('Start month: ', min_value=1, max_value=12, value=1, key='hourly_data_start_month')
-            with col5:
-                hourly_data_end_month = st.number_input('End month: ', min_value=1, max_value=12, value=12, key='hourly_data_end_month')
-            with col6:
-                hourly_data_start_day = st.number_input('Start day: ', min_value=1, max_value=31, value=1, key='hourly_data_start_day')
-            with col7:
-                hourly_data_end_day = st.number_input('End day: ', min_value=1, max_value=31, value=31, key='hourly_data_end_day')
-            with col8:
-                hourly_data_start_hour = st.number_input('Start hour: ', min_value=0, max_value=23, value=0, key='hourly_data_start_hour')
-            with col9:
-                hourly_data_end_hour = st.number_input('End hour: ', min_value=0, max_value=23, value=23, key='hourly_data_end_hour')
-        
-        hourly_data_figure = get_hourly_data_figure(data=hourly_data, 
-                                                    global_colorset=global_colorset_selector, 
-                                                    conditional_statement=hourly_data_conditonal_statement, 
-                                                    min=hourly_data_min, 
-                                                    max=hourly_data_max, 
-                                                    start_month=hourly_data_start_month, 
-                                                    end_month=hourly_data_end_month, 
-                                                    start_day=hourly_data_start_day, 
-                                                    end_day=hourly_data_end_day, 
-                                                    start_hour=hourly_data_start_hour, 
-                                                    end_hour=hourly_data_end_hour)
-        
-        if isinstance(hourly_data_figure, str):
-            st.error(hourly_data_figure, icon="🚨")
-        else:
-            hourly_data_figure.update_layout(title=dict(x=0.5, y=0.96), margin=dict(t=60, b=0, pad=0), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-            st.plotly_chart(hourly_data_figure, use_container_width=True, config=get_figure_config(f'{hourly_data.header.data_type}'))
-        
-
-        # Thematic Break Line
-        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)
-        
-        
-        st.subheader('Diurnal Average Chart (Hourly Data)')
-        st.markdown('Choose an environmental variable from the EPW weather file to display on a diurnal average chart. By default, the hourly data is set to **Dry Bulb Temperature**.')
-
-        with st.expander('Control Panel', expanded=True):
-            diurnal_average_chart_hourly_selected = st.selectbox('Select an environmental variable: ', options=fields.keys(), index=0, key='hourly_diurnal_average_chart')
-            diurnal_average_chart_hourly_data = global_epw._get_data_by_field(fields[diurnal_average_chart_hourly_selected])
-            diurnal_average_chart_hourly_switch = st.checkbox('Switch Colors', value=False, key='hourly_diurnal_average_chart_switch', help='Reverse the colorset')
-
-        def get_hourly_diurnal_average_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
-            colors = get_colors(switch, global_colorset)
-            return data.diurnal_average_chart(title=data.header.data_type.name, show_title=True, color=colors[9])
-        
-        per_hour_line_chart_figure = get_hourly_diurnal_average_chart_figure(diurnal_average_chart_hourly_data, diurnal_average_chart_hourly_switch, global_colorset_selector)
-        per_hour_line_chart_figure.update_layout(margin=dict(t=60, b=54, pad=5), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(per_hour_line_chart_figure, use_container_width=True, config=get_figure_config(f'{diurnal_average_chart_hourly_data.header.data_type.name}'))
 
 
-        # Thematic Break Line
-        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)
-        
-
-        st.subheader('Hourly Line Chart')
-        st.markdown('Choose an environmental variable from the EPW weather file to display on a line chart. By default, the hourly data is set to **Dry Bulb Temperature**.')
-        
-        with st.expander('Control Panel', expanded=True):
-            hourly_line_chart_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), index=0, key='line_chart')
-            hourly_line_chart_data = global_epw._get_data_by_field(fields[hourly_line_chart_selected])
-            hourly_line_chart_switch = st.checkbox('Switch Colors', value=False, key='line_chart_switch', help='Reverse the colorset')
-        
-        def get_hourly_line_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str, selection: str):
-            colors = get_colors(switch, global_colorset)
-            return data.line_chart(color=colors[9], title=selection, show_title=True)
-            
-        hourly_line_chart_figure = get_hourly_line_chart_figure(hourly_line_chart_data, hourly_line_chart_switch, global_colorset_selector, hourly_line_chart_selected)
-        hourly_line_chart_figure.update_layout(margin=dict(t=96, b=0, pad=0), title=dict(x=0.5, y=0.96), legend=dict(bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(hourly_line_chart_figure, use_container_width=True, config=get_figure_config(f'{hourly_line_chart_selected}'))
-        
-        
-        
+# Degree Days ---------            
     with tabs[3]:
         st.subheader('Degree Days')
         st.markdown('Computes heating and cooling degree-days, which are traditionally defined as the difference between a base temperature and the average ambient air temperature, '
@@ -373,7 +366,6 @@ with st.container():
         with st.expander('Control Panel', expanded=True):
             degree_days_heat_base = st.number_input(label='Base heating temperature: ', value=18)
             degree_days_cool_base = st.number_input(label='Base cooling temperature: ', value=23)
-            degree_days_switch = st.checkbox(label='Switch colors', key='degree_switch', help='Reverse the colorset')
             degree_days_stack = st.checkbox('Stack')
         
         def get_degree_days_figure(data: HourlyContinuousCollection, heatbase: int, coolbase: int, stack: bool, switch: bool, global_colorset: str):
@@ -388,14 +380,15 @@ with st.container():
             monthly_chart = MonthlyChart([hourly_cool.total_monthly(), hourly_heat.total_monthly()], legend_parameters=lb_lp, stack=stack)
             return monthly_chart.plot(), hourly_heat, hourly_cool
         
-        degree_days_figure, hourly_heat, hourly_cool = get_degree_days_figure(global_epw.dry_bulb_temperature, degree_days_heat_base, degree_days_cool_base, degree_days_stack, degree_days_switch, global_colorset_selector)
+        degree_days_figure, hourly_heat, hourly_cool = get_degree_days_figure(global_epw.dry_bulb_temperature, degree_days_heat_base, degree_days_cool_base, degree_days_stack, color_switch, global_colorset_selector)
         degree_days_figure.update_layout(margin=dict(pad=0), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor, title='')
         degree_days_figure.update_traces(marker=dict(line=dict(width=0)))
         st.plotly_chart(degree_days_figure, use_container_width=True, config=get_figure_config(f'Degree days_{global_epw.location.city}'))
         st.markdown(f'**Total Cooling Degree Days** are **:blue[{round(hourly_cool.total)}]** and **Total Heating Degree Days** are **:red[{round(hourly_heat.total)}]**.')
         
         
-        
+
+# Wind Rose ---------            
     with tabs[4]:
         st.subheader('Windrose')
         st.markdown('A windrose diagram that displays the distribution of wind speed and direction at Cardiff.')
@@ -415,22 +408,24 @@ with st.container():
             with col6:
                 windrose_end_hour = st.number_input('End hour: ', min_value=0, max_value=23, value=23, key='windrose_end_hour')
             
-        def get_windrose_figure(start_month: int, end_month: int, start_day: int, end_day: int, start_hour: int, end_hour: int, epw: EPW, global_colorset: str):
+        def get_windrose_figure(start_month: int, end_month: int, start_day: int, end_day: int, start_hour: int, end_hour: int, epw: EPW, global_colorset: str, switch: bool):
+            colors = get_colors(switch, global_colorset)
             lb_ap = AnalysisPeriod(start_month, start_day, start_hour, end_month, end_day, end_hour)
             wind_dir = epw.wind_direction.filter_by_analysis_period(lb_ap)
             wind_spd = epw.wind_speed.filter_by_analysis_period(lb_ap)
             
-            lb_lp = LegendParameters(colors=colorsets[global_colorset])
+            lb_lp = LegendParameters(colors=colors)
             lb_wind_rose = WindRose(wind_dir, wind_spd)
             lb_wind_rose.legend_parameters = lb_lp
             return lb_wind_rose.plot(title=f'{global_epw.location.city}, {global_epw.location.country}', show_title=True)
             
-        windrose_figure = get_windrose_figure(windrose_start_month, windrose_end_month, windrose_start_day, windrose_end_day, windrose_start_hour, windrose_end_hour, global_epw, global_colorset_selector)
+        windrose_figure = get_windrose_figure(windrose_start_month, windrose_end_month, windrose_start_day, windrose_end_day, windrose_start_hour, windrose_end_hour, global_epw, global_colorset_selector, color_switch)
         windrose_figure.update_layout(margin=dict(t=60, b=0, pad=0), title=dict(x=0.46, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
         st.plotly_chart(windrose_figure, use_container_width=True, config=get_figure_config(f'Windrose_{global_epw.location.city}'))
         
         
-        
+
+# Psychrometric Chart ---------            
     with tabs[5]:
         st.subheader('Psychrometric Chart')
         st.markdown('Generate a psychrometric chart for the **Dry Bulb Temperature** and **Relative Humidity** from the weather file. You can also load one of the environmental variables of EPW on the psychrometric chart. ' 
@@ -457,8 +452,9 @@ with st.container():
         with st.expander('Passive Strategy Explanation'):
             st.table(df_passive_strategy_explanation)
         
-        def get_psy_chart_figure(epw: EPW, global_colorset: str, selected_strategy: str, load_data: bool, draw_polygons: bool, data: HourlyContinuousCollection):
-            lb_lp = LegendParameters(colors=colorsets[global_colorset])
+        def get_psy_chart_figure(epw: EPW, global_colorset: str, selected_strategy: str, load_data: bool, draw_polygons: bool, data: HourlyContinuousCollection, switch: bool):
+            colors = get_colors(switch, global_colorset)
+            lb_lp = LegendParameters(colors=colors)
             lb_psy = PsychrometricChart(epw.dry_bulb_temperature, epw.relative_humidity, legend_parameters=lb_lp)
             
             if selected_strategy == 'All':
@@ -491,7 +487,7 @@ with st.container():
                     
             return fig
         
-        psy_chart_figure = get_psy_chart_figure(global_epw, global_colorset_selector, psy_selected_strategy, psy_load_data, psy_draw_polygons, psy_data)
+        psy_chart_figure = get_psy_chart_figure(global_epw, global_colorset_selector, psy_selected_strategy, psy_load_data, psy_draw_polygons, psy_data, color_switch)
         psy_chart_figure.update_layout(margin=dict(pad=0), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor, title='')
         st.plotly_chart(psy_chart_figure, use_container_width=True, config=get_figure_config(f'Psychrometric_chart_{global_epw.location.city}'))
         
@@ -502,36 +498,36 @@ with st.container():
  # Thematic Break Line
 st.markdown('---')
 
-with st.container():
-    term_explanation = [['The temperature of air measured by a thermometer that is not affected by the moisture of the air. It is also called "air temperature" or "ambient air temperature".'],
-                        ['The temperature at which air becomes saturated with water vapor, assuming constant air pressure and water content. The higher the dew point temperature, the more humid the air is.'],
-                        ['The ratio of how much water vapour is in the air and how much water vapour the air could potentially contain at a given temperature, usually expressed as a percentage.'],
-                        ['Also known as "barometric pressure" (after the barometer), is the pressure within the atmosphere of Earth.'],
-                        ['The amount of solar energy per unit time received on a unit area of a horizontal surface outside the atmosphere, which is used to estimate the potential solar energy available at a given site.'],
-                        ['The amount of solar energy per unit time received on a unit area of a surface perpendicular to the rays of the sun outside the atmosphere, which is used to evaluate the performance of concentrating solar power systems that track the sun.'], 
-                        ['Defined as the rate of infrared radiation emitted from the sky falling on a horizontal upward-facing surface'], 
-                        ['The total amount of shortwave radiation (0.2 - 3.0μm) received from above by a surface horizontal to the ground, which is used to estimate the potential solar energy avaliable at a given site.'], 
-                        ["The amount of shortwave radiation (0.2 - 3.0μm) arising from a narrow solid angle (5° aperture) centered around the sun's disk and impinging on a surface normal (or perpendicular) to the direction of the radiation, which is used to evaluate the performance of concentrating solar power systems that track the sun."], 
-                        ["The amount of shortwave isotropic radiation (0.2 - 3.0μm) arising from the upper hemisphere reduced by the direct solar radiation from the sun's disk and its surroundings (5° aperture), which is used to estimate the potential solar energy for flat-plate photovoltaic systems that do not track the sun."], 
-                        ["The amount of light falling on a horizontal surface from all directions. It is measured in lux (lx) or foot-candles (fc), which is used to evaluate the daylighting potential and performance of buildings and spaces."], 
-                        ['The amount of light falling on a surface that is perpendicular to the direction of sunlight. It is measured in lux (lx) or foot-candles (fc), whici is used to evaluate the brightness and glare of sunlight in buildings and spaces.'], 
-                        ['The amount of light falling on a horizontal surface from all directions except the direct sunlight. It is measured in lux (lx) or foot-candles (fc), whici is used to evaluate the skylight contribution and uniformity of daylighting in buildings and spaces.'], 
-                        ['The luminance of a point on the celestial sphere directly above an observer. It is usually measured in kilocandelas per square meter (kcd/m2) and depends on factors such as solar altitude, atmospheric turbidity and sky conditions. Zenith luminance can be used to calculate the amount of light falling on a horizontal surface.'], 
-                        ['The direction from which the wind blows. It is usually measured in degrees from north (0°) clockwise to 360°.'], 
-                        ['A fundamental atmospheric quantity caused by air moving from high to low pressure, usually due to changes in temperature. Wind speed can be expressed in various units, such as meters per second (m/s), kilometers per hour (km/h), miles per hour (mph) or knots (kt).'], 
-                        ['The fraction of the sky covered by all the visible clouds, ranging from 0 (completely clear sky) to 1 (completely overcast sky). One common way of expressing total sky cover is using oktas, which are units of eighths of the sky. A total sky cover of 0.8 means that 80% of the sky is covered by clouds or other phenomena, but some of them may be transparent and allow some light to pass through.'], 
-                        ['The amount of sky completely hidden by clouds or obscuring phenomena. An opaque sky cover of 0.6 means that 60% of the sky is completely hidden by clouds or other phenomena, and no light can pass through them.'], 
-                        ['The measure of the distance at which an object or light can be clearly discerned.'], 
-                        ['The value for ceiling height in m. (77777 is unlimited ceiling height. 88888 is cirroform ceiling.) It is not currently used in EnergyPlus calculations. Missing value is 99999.'], 
-                        ['If the value of the field is 0, then the observed weather codes are taken from the following field. If the value of the field is 9, then "missing" weather is assumed. Since the primary use of these fields (Present Weather Observation and Present Weather Codes) is for rain/wet surfaces, a missing observation field or a missing weather code implies "no rain". 0 = Weather observation made; 9 = Weather observation not made, or missing.'], 
-                        ['The present weather codes field is assumed to follow the TMY2 conventions for this field. Note that though this field may be represented as numeric (e.g. in the CSV format), it is really a text field of 9 single digits. For detailed information, please visit: https://bigladdersoftware.com/epx/docs/8-3/auxiliary-programs/energyplus-weather-file-epw-data-dictionary.html#field-present-weather-codes'], 
-                        ['The depth of water in a column of the atmosphere, if all the water in that column were precipitated as rain. Precipitable water indicates how much moisture is available in the air for producing precipitation such as rain, snow, hail, etc. For example, high values of precipitable water can indicate warm and humid air masses that are associated with tropical cyclones or monsoons. Low values of precipitable water can indicate cold and dry air masses that are associated with polar regions or deserts.'], 
-                        ['A measure of how much light is absorbed or scattered by airborne particles as it travels through a column of atmosphere. It is a dimensionless quantity that ranges from 0 (no aerosols) to 1 (very dense aerosols). Aerosol optical depth can indicate the amount and type of aerosols in the atmosphere, such as dust, smoke, pollution, etc.'], 
-                        ['The vertical distance between the ground and the top of the snowpack, which can indicate the amount and quality of snow available for skiing, snowboarding, sledding, etc.'], 
-                        ['The number of days that have elapsed since the last recorded snowfall at a given location.'], 
-                        ['The measure of the diffuse reflection of solar radiation out of the total solar radiation and measured on a scale from 0, corresponding to a black body that absorbs all incident radiation, to 1, corresponding to a body that reflects all incident radiation. Albedo can indicate how much solar energy is reflected or absorbed by a surface.'], 
-                        ['The depth to which liquid precipitation would cover a horizontal surface in an observation period if nothing could drain, evaporate or percolate from this surface, which can indicate the amount and quality of water available for various purposes such as irrigation, drinking, hydroelectricity, etc.']]
-    df_term_explanation = pd.DataFrame(data=term_explanation, index=fields.keys(), columns=['Explanation'])
+with st.container(): # https://www.ladybug.tools/ladybug/docs/ladybug.epw.html
+    term_explanation = [['This is the Dry Bulb Temperature in C at the time indicated. (The temperature of air measured by a thermometer that is not affected by the moisture of the air. It is also called "air temperature" or "ambient air temperature"). Note that this is a full numeric field (i.e. 23.6) and not an integer representation with tenths. Valid values range from -70C to 70C. Missing value for this field is 99.9.'],
+                        ['This is the Dew Point Temperature in C at the time indicated. (The temperature at which air becomes saturated with water vapor, assuming constant air pressure and water content. The higher the dew point temperature, the more humid the air is). Note that this is a full numeric field (i.e. 23.6) and not an integer representation with tenths. Valid values range from -70C to 70C. Missing value for this field is 99.9.'],
+                        ['This is the Relative Humidity in percent at the time indicated. (The ratio of how much water vapour is in the air and how much water vapour the air could potentially contain at a given temperature). Valid values range from 0% to 110%. Missing value for this field is 999.'],
+                        ['This is the Station Pressure in Pa at the time indicated. (Also known as "barometric pressure" (after the barometer), is the pressure within the atmosphere of Earth). Valid values range from 31,000 to 120,000. (These values were chosen from the standard barometric pressure for all elevations of the World). Missing value for this field is 999999.'],
+                        ['This is the Extraterrestrial Horizontal Radiation in Wh/m2. (Amount of solar energy per unit time received on a unit area of a horizontal surface outside the atmosphere). It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 9999.'],
+                        ['This is the Extraterrestrial Direct Normal Radiation in Wh/m2. (Amount of solar radiation in Wh/m2 received on a surface normal to the rays of the sun at the top of the atmosphere during the number of minutes preceding the time indicated). It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 9999.'], 
+                        ['This is the Horizontal Infrared Radiation Intensity in W/m2. (Defined as the rate of infrared radiation emitted from the sky falling on a horizontal upward-facing surface). If it is missing, it is calculated from the Opaque Sky Cover field as shown in the following explanation. It should have a minimum value of 0; missing value for this field is 9999.'], 
+                        ['This is the Global Horizontal Radiation in Wh/m2. (Total amount of direct and diffuse solar radiation in Wh/m2 received on a horizontal surface during the number of minutes preceding the time indicated.) It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 9999.'], 
+                        ["This is the Direct Normal Radiation in Wh/m2. (Amount of solar radiation in Wh/m2 received directly from the solar disk on a surface perpendicular to the sun's rays, during the number of minutes preceding the time indicated.) If the field is missing ( >= 9999) or invalid ( < 0), it is set to 0. Counts of such missing values are totaled and presented at the end of the runperiod."], 
+                        ["This is the Diffuse Horizontal Radiation in Wh/m2. (Amount of solar radiation in Wh/m2 received from the sky (excluding the solar disk) on a horizontal surface during the number of minutes preceding the time indicated.) If the field is missing ( >= 9999) or invalid ( < 0), it is set to 0. Counts of such missing values are totaled and presented at the end of the runperiod."], 
+                        ["This is the Global Horizontal Illuminance in lux. (Average total amount of direct and diffuse illuminance in hundreds of lux received on a horizontal surface during the number of minutes preceding the time indicated.) It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 999999 and will be considered missing if greater than or equal to 999900."], 
+                        ["This is the Direct Normal Illuminance in lux. (Average amount of illuminance in hundreds of lux received directly from the solar disk on a surface perpendicular to the sun's rays, during the number of minutes preceding the time indicated.) It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 999999 and will be considered missing if greater than or equal to 999900."], 
+                        ['This is the Diffuse Horizontal Illuminance in lux. (Average amount of illuminance in hundreds of lux received from the sky (excluding the solar disk) on a horizontal surface during the number of minutes preceding the time indicated.) It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 999999 and will be considered missing if greater than or equal to 999900.'], 
+                        ["This is the Zenith Illuminance in Cd/m2. (Average amount of luminance at the sky's zenith in tens of Cd/m2 during the number of minutes preceding the time indicated.) It is not currently used in EnergyPlus calculations. It should have a minimum value of 0; missing value for this field is 9999."], 
+                        ['This is the Wind Direction in degrees where the convention is that North=0.0, East=90.0, South=180.0, West=270.0. (Wind direction in degrees at the time indicated. If calm, direction equals zero.) Values can range from 0 to 360. Missing value is 999.'], 
+                        ['This is the wind speed in m/sec. (Wind speed at time indicated.) Values can range from 0 to 40. Missing value is 999.'], 
+                        ['This is the value for total sky cover (tenths of coverage). (i.e. 1 is 1/10 covered. 10 is total coverage). (Amount of sky dome in tenths covered by clouds or obscuring phenomena at the hour indicated at the time indicated.) Minimum value is 0; maximum value is 10; missing value is 99.'], 
+                        ['This is the value for opaque sky cover (tenths of coverage). (i.e. 1 is 1/10 covered. 10 is total coverage). (Amount of sky dome in tenths covered by clouds or obscuring phenomena that prevent observing the sky or higher cloud layers at the time indicated.) This is not used unless the field for Horizontal Infrared Radiation Intensity is missing and then it is used to calculate Horizontal Infrared Radiation Intensity. Minimum value is 0; maximum value is 10; missing value is 99.'], 
+                        ['This is the value for visibility in km. (Horizontal visibility at the time indicated.) It is not currently used in EnergyPlus calculations. Missing value is 9999.'], 
+                        ['This is the value for ceiling height in m. (77777 is unlimited ceiling height. 88888 is cirroform ceiling.) It is not currently used in EnergyPlus calculations. Missing value is 99999.'], 
+                        ['If the value of the field is 0, then the observed weather codes are taken from the following field. If the value of the field is 9, then “missing” weather is assumed. Since the primary use of these fields (Present Weather Observation and Present Weather Codes) is for rain/wet surfaces, a missing observation field or a missing weather code implies no rain.'], 
+                        ['The Present Weather Codes field is assumed to follow the TMY2 conventions for this field. Note that though this field may be represented as numeric (e.g. in the CSV format), it is really a text field of 9 single digits. This convention along with values for each “column” (left to right) is presented in Table 16. Note that some formats (e.g. TMY) does not follow this convention - as much as possible, the present weather codes are converted to this convention during WeatherConverter processing. Also note that the most important fields are those representing liquid precipitation - where the surfaces of the building would be wet. EnergyPlus uses “Snow Depth” to determine if snow is on the ground.'], 
+                        ['This is the value for Precipitable Water in mm. (This is not rain - rain is inferred from the PresWeathObs field but a better result is from the Liquid Precipitation Depth field). It is not currently used in EnergyPlus calculations (primarily due to the unreliability of the reporting of this value). Missing value is 999.'], 
+                        ['This is the value for Aerosol Optical Depth in thousandths. It is not currently used in EnergyPlus calculations. Missing value is .999.'], 
+                        ['This is the value for Snow Depth in cm. This field is used to tell when snow is on the ground and, thus, the ground reflectance may change. Missing value is 999.'], 
+                        ['This is the value for Days Since Last Snowfall. It is not currently used in EnergyPlus calculations. Missing value is 99.'], 
+                        ['The ratio (unitless) of reflected solar irradiance to global horizontal irradiance. It is not currently used in EnergyPlus.'], 
+                        ['The amount of liquid precipitation (mm) observed at the indicated time for the period indicated in the liquid precipitation quantity field. If this value is not missing, then it is used and overrides the “precipitation” flag as rainfall. Conversely, if the precipitation flag shows rain and this field is missing or zero, it is set to 1.5 (mm).']]
+    df_term_explanation = pd.DataFrame(data=term_explanation, index=fields.keys(), columns=['Explanation (Annual Basis)'])
     st.header('Terminology')
     st.table(df_term_explanation)
         
