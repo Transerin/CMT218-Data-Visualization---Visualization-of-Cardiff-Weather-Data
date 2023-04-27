@@ -527,7 +527,7 @@ with st.container(): # https://www.ladybug.tools/ladybug/docs/ladybug.epw.html
                         ['This is the value for Days Since Last Snowfall. It is not currently used in EnergyPlus calculations. Missing value is 99.'], 
                         ['The ratio (unitless) of reflected solar irradiance to global horizontal irradiance. It is not currently used in EnergyPlus.'], 
                         ['The amount of liquid precipitation (mm) observed at the indicated time for the period indicated in the liquid precipitation quantity field. If this value is not missing, then it is used and overrides the “precipitation” flag as rainfall. Conversely, if the precipitation flag shows rain and this field is missing or zero, it is set to 1.5 (mm).']]
-    df_term_explanation = pd.DataFrame(data=term_explanation, index=fields.keys(), columns=['Explanation (Annual Basis)'])
+    df_term_explanation = pd.DataFrame(data=term_explanation, index=fields.keys(), columns=['Explanation (Data is Annual Basis)'])
     st.header('Terminology')
     st.table(df_term_explanation)
         
