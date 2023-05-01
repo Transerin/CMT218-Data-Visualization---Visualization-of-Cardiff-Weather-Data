@@ -1,7 +1,6 @@
 ladybug-charts==1.18.8
 ladybug-comfort==0.16.29
 ladybug-pandas==0.4.1
-ladybug-vtk==0.13.9
 numpy==1.24.2
 pandas==1.5.3
 streamlit==1.21.0
