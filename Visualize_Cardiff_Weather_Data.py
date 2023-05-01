@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import streamlit as st
-import streamlit.components.v1 as components
 from ladybug.epw import EPW, EPWFields
 from ladybug.color import Colorset
 from ladybug.datacollection import HourlyContinuousCollection
@@ -44,30 +43,15 @@ def get_figure_config(title: str):
 colorsets = {
     'Original': Colorset.original(),
     'Nuanced': Colorset.nuanced(),
-    'Annual_comfort': Colorset.annual_comfort(),
-    'Benefit': Colorset.benefit(),
-    'Benefit_harm': Colorset.benefit_harm(),
-    'Black_to_white': Colorset.black_to_white(),
-    'Blue_green_red': Colorset.blue_green_red(),
-    'Cloud_cover': Colorset.cloud_cover(),
-    'Cold_sensation': Colorset.cold_sensation(),
     'Ecotect': Colorset.ecotect(),
     'Energy_balance': Colorset.energy_balance(),
     'Energy_balance_storage': Colorset.energy_balance_storage(),
-    'Glare_study': Colorset.glare_study(),
-    'Harm': Colorset.harm(),
-    'Heat_sensation': Colorset.heat_sensation(),
     'Multi_colored': Colorset.multi_colored(),
     'Multicolored_2': Colorset.multicolored_2(),
     'Multicolored_3': Colorset.multicolored_3(),
     'Openstudio_palette': Colorset.openstudio_palette(),
-    'Peak_load_balance': Colorset.peak_load_balance(),
-    'Shade_benefit': Colorset.shade_benefit(),
-    'Shade_benefit_harm': Colorset.shade_benefit_harm(),
     'Shade_harm': Colorset.shade_harm(),
-    'Shadow_study': Colorset.shadow_study(),
     'Therm': Colorset.therm(),
-    'Thermal_comfort': Colorset.thermal_comfort(),
     'View_study': Colorset.view_study()
 }
 
@@ -81,7 +65,7 @@ global_epw = EPW(epw_path)
 # ----------------------------------------------------------------- Part 1 Title and Header -----------------------------------------------------------------
 with st.container():
     st.title(f'Visualization of Cardiff Weather Data')
-    st.markdown('🙌 Welcome to the weather data visualization of city Cardiff, UK. Here you will get the full weather information of Cardiff. '
+    st.markdown('🙌 Welcome to the weather data visualization of city Cardiff, UK. Here you will get the comprehensive weather information of Cardiff. '
                 '🖱️ Please use your cursor to hover over every charts to see the detail values and enjoy your exploration!')
     
     imageUrl = "https://unsplash.com/photos/qmZUcdwY5bE/download?ixid=MnwxMjA3fDB8MXxzZWFyY2h8Mnx8Y2FyZGlmZnxlbnwwfHx8fDE2ODI0MTA2Nzk&force=true&w=1920"
@@ -92,7 +76,10 @@ with st.container():
     st.header(f'General Information about Cardiff')   
     st.markdown("**Cardiff** is the capital and largest city of Wales. Cardiff had a population of 362,310 in 2021, forms a principal area officially known "
                 "as the **City and County of Cardiff** (Welsh: Dinas a Sir Caerdydd), and the city is the eleventh-largest in the United Kingdom. "
-                "In 2011, it ranked sixth in the world in a National Geographic magazine list of alternative tourist destinations. It is the most popular destination in Wales with 21.3 million visitors in 2017. _(Wikipedia)_")
+                "In 2011, it ranked sixth in the world in a National Geographic magazine list of alternative tourist destinations. It is the most popular destination in Wales with 21.3 million visitors in 2017. "
+                "Cardiff, in the north temperate zone, has a maritime climate marked by mild weather that is often cloudy, wet and windy. Summers tend to be warm and sunny, with average maxima between 19 and 22 °C (66 and 72 °F). "
+                "Winters are fairly wet, but excessive rainfall as well as frost are rare. Spring and autumn feel similar and the temperatures tend to stay above 14 °C (57 °F) - also the average annual daytime temperature. "
+                "Rain is unpredictable at any time of year, although showers tend to be shorter in summer. _(Wikipedia)_")
 
     site_latitude = global_epw.location.latitude
     site_longitude = global_epw.location.longitude
@@ -105,13 +92,13 @@ with st.container():
 st.markdown('---')
 
 
-# ----------------------------------------------------------------- Part 3 EPW Charts -----------------------------------------------------------------
+# ----------------------------------------------------------------- Part 3 Plotly Charts -----------------------------------------------------------------
 with st.container():
-    st.header('Visualize Weather Data')
-    global_colorset_selector = st.selectbox('Global Colorsets Selector for Charts', list(colorsets.keys()))
+    st.header('Visualize Auunal Weather Data')
+    global_colorset_selector = st.selectbox('Global Colorsets Selector', list(colorsets.keys()))
     color_switch = st.checkbox('Switch Colors', value=False, key='color_switch', help='Reverse the colorset')
     
-    tabs = st.tabs(['Hourly Data', 'Daily Data', 'Monthly Data', 'Degree Days', 'Windrose', 'Psychrometric Chart'])
+    tabs = st.tabs(['Hourly Data Chart', 'Daily Data Chart', 'Monthly Data Chart', 'Degree Days Chart', 'Windrose Chart', 'Psychrometric Chart'])
     
     dashed_line_style = """
     border-top: 1.2px dashed #999;
@@ -130,10 +117,10 @@ with st.container():
 
 # Hourly Data ---------            
     with tabs[0]:
-        st.subheader('Hourly Data Heatmap')
-        st.markdown('Choose an environmental variable from the EPW weather file to display. By default, the hourly data is set to **Dry Bulb Temperature**. You can apply a conditional statement to filter the data. '
+        st.subheader('Hourly Data Heatmap and Diurnal Average Chart')
+        st.markdown('A colored density heatmap that helps identify patterns of different weather data and a more detailed diurnal average chart which allows you to explore hourly data from a specific environmental variable. By default, the data is set to **Dry Bulb Temperature**. You can apply a conditional statement to filter the data. '
                     'For instance, use "a>10", without quotes, to display temperatures above 10, or "a>-5 and a<10", without quotes, for temperatures between -5 and 10. You can also adjust the min and max inputs to customize the data bounds and legend. '
-                    'The chart automatically sets the bounds to the minimum and maximum values of the data by default.')
+                    "The chart sets the bounds to the minimum and maximum values of the data by default. **Please note that the conditional statement and data bounds only work for the heatmap**.")
 
         def get_hourly_data_figure(data: HourlyContinuousCollection, global_colorset: str, conditional_statement: str, min: float, max: float, start_month: int, start_day: int, start_hour: int, 
                                    end_month: int, end_day: int, end_hour: int, switch: bool):
@@ -210,87 +197,57 @@ with st.container():
                                                     )
         
         hourly_data_figure.update_layout(title=dict(x=0.5, y=0.96), margin=dict(t=60, b=0, pad=0), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(hourly_data_figure, use_container_width=True, config=get_figure_config(f'{hourly_data.header.data_type}'))
-           
+        st.plotly_chart(hourly_data_figure, use_container_width=True, config=get_figure_config(f'{hourly_data.header.data_type}'))  
 
         
-# Daily Data ---------        
-    with tabs[1]: 
-        st.subheader('Hourly Line Chart')
-        st.markdown('Choose an environmental variable from the EPW weather file to display on a line chart. By default, the hourly data is set to **Dry Bulb Temperature**.')
-        
-        with st.expander('Control Panel', expanded=True):
-            daily_data_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), index=0, key='daily_data_line_chart_and_bar_chart')
-            daily_data_chart_data = global_epw._get_data_by_field(fields[daily_data_selected])
-        
-        def get_hourly_line_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str, selection: str):
-            colors = get_colors(switch, global_colorset)
-            return data.line_chart(color=colors[9], title=selection, show_title=True)
-            
-        hourly_line_chart_figure = get_hourly_line_chart_figure(daily_data_chart_data, color_switch, global_colorset_selector, daily_data_selected)
-        hourly_line_chart_figure.update_layout(margin=dict(t=96, b=0, pad=0), title=dict(x=0.5, y=0.96), legend=dict(bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(hourly_line_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_data_selected}'))
 
-
-        # Thematic Break Line
-        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)
-
-
-        st.subheader('Daily Chart')
-        st.markdown('Choose an environmental variable from the EPW weather file to display on a daily chart, which presents average daily values. By default, the hourly data is set to **Dry Bulb Temperature**.')
-    
-        def get_daily_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
-            colors = get_colors(switch, global_colorset)
-            data = data.average_daily()
-            return data.bar_chart(color=colors[9], title=data.header.data_type.name, show_title=True)
-        
-        daily_chart_figure = get_daily_chart_figure(daily_data_chart_data, color_switch, global_colorset_selector)
-        daily_chart_figure.update_layout(margin=dict(t=60, b=0, pad=0), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(daily_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_data_chart_data.header.data_type.name}'))        
-                  
-
-
-# Monthly Data ---------    
-    with tabs[2]: 
-        st.subheader('Diurnal Average Chart')
-        st.markdown('A chart illustrating the typical weather for each month, based on daily averages.')
-        
-        def get_diurnal_average_chart_figure(epw: EPW, global_colorset: str, switch: bool=False):
-            colors = get_colors(switch, global_colorset)
-            return epw.diurnal_average_chart(show_title=True, colors=colors)
-        
-        diurnal_average_chart_figure = get_diurnal_average_chart_figure(global_epw, global_colorset_selector, color_switch)
-        diurnal_average_chart_figure.update_layout(title=dict(x=0.5, y=0.96), margin=dict(t=96, b=54, pad=5), legend=dict(x=1, y=1.05, orientation='h', bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(diurnal_average_chart_figure, use_container_width=True, config=get_figure_config(f'Dinurnal Chart_{global_epw.location.city}'))
-
-
-        # Thematic Break Line
-        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)
-
-
-        st.subheader('Diurnal Average Chart (Hourly Data)')
-        st.markdown('Choose an environmental variable from the EPW weather file to display on a diurnal average chart. By default, the hourly data is set to **Dry Bulb Temperature**.')
-
-        with st.expander('Control Panel', expanded=True):
-            diurnal_average_chart_hourly_selected = st.selectbox('Select an environmental variable: ', options=fields.keys(), index=0, key='hourly_diurnal_average_chart')
-            diurnal_average_chart_hourly_data = global_epw._get_data_by_field(fields[diurnal_average_chart_hourly_selected])
-
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         def get_hourly_diurnal_average_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
             colors = get_colors(switch, global_colorset)
             return data.diurnal_average_chart(title=data.header.data_type.name, show_title=True, color=colors[9])
         
-        per_hour_line_chart_figure = get_hourly_diurnal_average_chart_figure(diurnal_average_chart_hourly_data, color_switch, global_colorset_selector)
+        per_hour_line_chart_figure = get_hourly_diurnal_average_chart_figure(hourly_data, color_switch, global_colorset_selector)
         per_hour_line_chart_figure.update_layout(margin=dict(t=60, b=54, pad=5), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
-        st.plotly_chart(per_hour_line_chart_figure, use_container_width=True, config=get_figure_config(f'{diurnal_average_chart_hourly_data.header.data_type.name}'))
-        
-        
-        # Thematic Break Line
-        st.markdown(f'<div style="{dashed_line_style}"></div>', unsafe_allow_html=True)        
+        st.plotly_chart(per_hour_line_chart_figure, use_container_width=True, config=get_figure_config(f'{hourly_data.header.data_type.name}'))
 
 
-        st.subheader('Bar Chart')
-        st.markdown('Choose one or more environmental variables from the EPW weather file to display on a monthly bar chart side by side. By default, **Dry Bulb Temperature** and **Dew Point Temperature** are selected.')       
         
+# Daily Data ---------        
+    with tabs[1]: 
+        st.subheader('Daily Line Chart and Bar Chart')
+        st.markdown('A line chart with value bands which shows the variation of an environmental variable based on daily averages and a bar chart which shows the average daily value of an environmental varaiable. By default, the data is set to **Dry Bulb Temperature**.')
+        
+        with st.expander('Control Panel', expanded=True):
+            daily_data_selected = st.selectbox(label='Select an environmental variable: ', options=fields.keys(), index=0, key='daily_data_line_and_bar_chart')
+            daily_data_chart_data = global_epw._get_data_by_field(fields[daily_data_selected])
+        
+        def get_daily_line_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str, selection: str):
+            colors = get_colors(switch, global_colorset)
+            return data.line_chart(color=colors[9], title=selection, show_title=True)
+            
+        daily_line_chart_figure = get_daily_line_chart_figure(daily_data_chart_data, color_switch, global_colorset_selector, daily_data_selected)
+        daily_line_chart_figure.update_layout(margin=dict(t=96, b=0, pad=0), title=dict(x=0.5, y=0.96), legend=dict(bgcolor='rgba(0, 0, 0, 0)'), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        st.plotly_chart(daily_line_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_data_selected}'))
+
+
+
+        # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        def get_daily_bar_chart_figure(data: HourlyContinuousCollection, switch: bool, global_colorset: str):
+            colors = get_colors(switch, global_colorset)
+            data = data.average_daily()
+            return data.bar_chart(color=colors[9], title=data.header.data_type.name, show_title=True)
+        
+        daily_bar_chart_figure = get_daily_bar_chart_figure(daily_data_chart_data, color_switch, global_colorset_selector)
+        daily_bar_chart_figure.update_layout(margin=dict(t=60, b=0, pad=0), title=dict(x=0.5, y=0.96), plot_bgcolor=bgcolor, paper_bgcolor=bgcolor)
+        st.plotly_chart(daily_bar_chart_figure, use_container_width=True, config=get_figure_config(f'{daily_data_chart_data.header.data_type.name}'))        
+                  
+
+
+# Monthly Data ---------    
+    with tabs[2]:
+        st.subheader('Monthly Bar Chart')
+        st.markdown('Please choose one or more environmental variables from the EPW weather file to display on a monthly bar chart side by side. By default, **Dry Bulb Temperature** and **Dew Point Temperature** are selected. '
+                    '**In order to get a resonable visualization, please try to choose the relevent variables to make comparison, though you could choose as much variables as you wish**.')       
         
         bar_chart_selection = []
         keys = list(fields.keys())
@@ -359,7 +316,7 @@ with st.container():
 
 # Degree Days ---------            
     with tabs[3]:
-        st.subheader('Degree Days')
+        st.subheader('Heating and Cooling Degree Days')
         st.markdown('Computes heating and cooling degree-days, which are traditionally defined as the difference between a base temperature and the average ambient air temperature, '
                     'multiplied by the number of days this difference occurs. The default base temperatures for heating and cooling are 18°C and 23°C, respectively. This implies that heating is deployed below the heating base temperature, while cooling is deployed above the cooling base temperature.')    
         
@@ -391,7 +348,7 @@ with st.container():
 # Wind Rose ---------            
     with tabs[4]:
         st.subheader('Windrose')
-        st.markdown('A windrose diagram that displays the distribution of wind speed and direction at Cardiff.')
+        st.markdown('A windrose diagram that displays the distribution of wind speed and direction.')
         
         with st.expander('Control Panel', expanded=True):
             col1, col2, col3, col4, col5, col6 = st.columns(6)
