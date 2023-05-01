@@ -94,7 +94,7 @@ st.markdown('---')
 
 # ----------------------------------------------------------------- Part 3 Plotly Charts -----------------------------------------------------------------
 with st.container():
-    st.header('Visualize Auunal Weather Data')
+    st.header('Visualize Annual Weather Data')
     global_colorset_selector = st.selectbox('Global Colorsets Selector', list(colorsets.keys()))
     color_switch = st.checkbox('Switch Colors', value=False, key='color_switch', help='Reverse the colorset')
     
