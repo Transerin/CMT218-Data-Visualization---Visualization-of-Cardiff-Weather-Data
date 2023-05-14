@@ -16,7 +16,7 @@ from ladybug_comfort.degreetime import heating_degree_time, cooling_degree_time
 from ladybug.datatype.temperaturetime import HeatingDegreeTime, CoolingDegreeTime
 
 ###############################################################################################################
-# The whole code is developed and learned from Ladybug Tools sample apps. The reference can be found here: https://github.com/pollination/sample-apps
+# The whole code is developed and learned from Ladybug Tools sample apps. The reference can be found here: https://github.com/pollination/sample-apps/tree/master/epw-viz
 ###############################################################################################################
 
 st.set_page_config(page_title='Visualization of Cardiff Weather Data', layout="wide")
