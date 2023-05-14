@@ -15,6 +15,10 @@ from ladybug_comfort.chart.polygonpmv import PolygonPMV
 from ladybug_comfort.degreetime import heating_degree_time, cooling_degree_time
 from ladybug.datatype.temperaturetime import HeatingDegreeTime, CoolingDegreeTime
 
+###############################################################################################################
+# The whole code is developed and learned from Ladybug Tools sample apps. The reference can be found here: https://github.com/pollination/sample-apps
+###############################################################################################################
+
 st.set_page_config(page_title='Visualization of Cardiff Weather Data', layout="wide")
 bgcolor = st.get_option("theme.backgroundColor")
 
@@ -487,9 +491,3 @@ with st.container(): # https://www.ladybug.tools/ladybug/docs/ladybug.epw.html
     df_term_explanation = pd.DataFrame(data=term_explanation, index=fields.keys(), columns=['Explanation (Data is Annual Basis)'])
     st.header('Terminology')
     st.table(df_term_explanation)
-        
-
-    
-    
-    
-    
